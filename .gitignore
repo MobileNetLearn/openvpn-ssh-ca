@@ -1,0 +1,6 @@
+/debian/debhelper.log
+/debian/files
+/debian/*.debhelper.log
+/debian/*.substvars
+/debian/openvpn-ssh-ca/
+/debian/substvars

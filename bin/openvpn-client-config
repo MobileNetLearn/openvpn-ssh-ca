@@ -1,0 +1,72 @@
+#!/bin/sh -e
+
+cadir=/etc/openvpn/ca
+outputdir="`pwd`"
+
+usage()
+{
+	cat <<EOF
+Usage: `basename $0` <clientname> [<gateway>]
+EOF
+}
+
+if [ $# -lt 1 -o $# -gt 2 ]; then
+	usage >&2
+	exit 2
+fi
+
+clientname="$1"
+gateway="${2:-`hostname`}"
+
+umask 077
+
+if [ ! -d $cadir ]; then
+	make-cadir $cadir
+fi
+
+cd $cadir
+. ./vars >/dev/null
+
+[ -d $KEY_DIR ]           || install -m 700 -d $KEY_DIR
+[ -f $KEY_DIR/index.txt ] || touch $KEY_DIR/index.txt
+[ -s $KEY_DIR/serial ]    || echo 00 > $KEY_DIR/serial
+
+if [ ! -f $KEY_DIR/ca.key ]; then
+	./build-ca --batch
+fi
+
+if [ ! -f $KEY_DIR/$clientname.key ]; then
+	./build-key --batch $clientname
+fi
+
+mkdir "$outputdir/$clientname"
+cd "$outputdir/$clientname"
+
+cp $KEY_DIR/ca.crt "$KEY_DIR/$clientname.crt" "$KEY_DIR/$clientname.key" .
+
+cat > "$clientname.conf" <<EOF
+client
+dev tun
+proto udp
+remote $gateway 1194
+resolv-retry-infinite
+nobind
+persist-key
+persist-tun
+ca ca.crt
+cert $clientname.crt
+key $clientname.key
+comp-lzo
+verb 3
+EOF
+
+cp "$clientname.conf" "$clientname.ovpn"
+
+# Make files show up in tar as owned by $SUDO_USER. The "<user>:" syntax of
+# chown is a GNU behaviour and also changes the group.
+[ -n "$SUDO_USER" ] && chown -R "$SUDO_USER": .
+
+tar -czf "../$clientname.tar.gz" *
+cd ..
+
+[ -n "$SUDO_USER" ] && chown "$SUDO_USER": "$clientname.tar.gz"

@@ -1,0 +1,10 @@
+Source: openvpn-ssh-ca
+Priority: optional
+Section: net
+Maintainer: Uwe Stuehler <uwe@bsdx.de>
+
+Package: openvpn-ssh-ca
+Description: SSH-based CA and client configuration for OpenVPN
+Architecture: all
+Suggests: openvpn
+Depends: ruby, easy-rsa, openssh-server

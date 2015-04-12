@@ -1,0 +1,2 @@
+bin/openvpn-ssh-ca usr/sbin
+bin/openvpn-client-config usr/sbin

@@ -1,0 +1,55 @@
+#!/usr/bin/ruby
+
+require 'fileutils'
+require 'optparse'
+require 'socket'
+
+options = {}
+
+optparse = OptionParser.new do |opts|
+  opts.banner = "Usage: #{opts.program_name} [-g <gateway>] <clientname>"
+  opts.on('-g', '--gateway=host',
+  'Public IP address or hostname of OpenVPN gateway') do |arg|
+    options[:gateway] = arg
+  end
+end
+
+optparse.parse!
+
+if ARGV.size != 1
+  $stderr.puts optparse
+  exit 2
+end
+
+clientname = ARGV[0]
+gateway = options[:gateway] || `hostname`.chomp
+command_authorized = false
+
+[
+  /^scp (-r )?-f #{clientname}(\/(\.|[^.].+)?)?$/,
+  /^scp (-r )?-f (\.?\/+)?#{clientname}\.tar\.gz$/
+].each do |command|
+  if ENV['SSH_ORIGINAL_COMMAND'] =~ command
+    command_authorized = true
+    break
+  end
+end 
+
+unless command_authorized
+  remote = "#{ENV['USER']}@#{gateway}"
+  puts "Please use \"scp #{remote}:#{clientname}.tar.gz .\" or \"scp -r #{remote}:#{clientname} .\" to retrieve your client configuration."
+  exit 1
+end
+
+unless system(*%W{/usr/bin/sudo /usr/sbin/openvpn-client-config #{clientname} #{gateway}})
+  puts 'Failed to generate your client configuration.'
+  exit 1
+end
+
+unless system(ENV['SSH_ORIGINAL_COMMAND'])
+  exit 1
+end
+
+FileUtils.rm_rf clientname
+File.unlink "#{clientname}.tar.gz"
+exit 0

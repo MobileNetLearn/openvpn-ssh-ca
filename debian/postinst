@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+user=openvpn
+homedir=/var/lib/openvpn-ssh-ca
+ssh_ca=/usr/sbin/openvpn-ssh-ca
+genconfig=/usr/sbin/openvpn-client-config
+
+if ! getent passwd $user >/dev/null; then
+	adduser --quiet --system --group --no-create-home --home $homedir --shell /bin/sh $user
+fi
+
+if [ ! -f /etc/sudoers.d/openvpn-ssh-ca ]; then
+	echo "$user ALL=(root) NOPASSWD:$genconfig" >/etc/sudoers.d/openvpn-ssh-ca
+fi
+
+[ -d $homedir ]      || install -o $user -g $user -m 750 -d $homedir
+[ -d $homedir/.ssh ] || install -o $user -g $user -m 750 -d $homedir/.ssh
+
+if [ ! -f $homedir/.ssh/authorized_keys ]; then
+	cat >$homedir/.ssh/authorized_keys <<EOF
+# Example:
+# command="$ssh_ca clientname",no-agent-forwarding,no-port-forwarding,no-user-rc,no-X11-forwarding ssh-rsa AAAAB3N...
+EOF
+fi
